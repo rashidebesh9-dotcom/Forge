@@ -1,0 +1,671 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#08080a">
+<title>Forge</title>
+<style>
+:root{
+  --bg:#08080a;--panel:rgba(22,22,28,.72);--panel-2:rgba(30,30,38,.6);
+  --border:rgba(255,255,255,.07);--border-2:rgba(255,255,255,.14);
+  --fg:#f2f2f7;--dim:#8b8b9e;--dim-2:#5a5a6e;
+  --a1:#8b5cf6;--a2:#22d3ee;--a3:#f472b6;--ok:#34d399;--err:#f87171;
+  --grad:linear-gradient(135deg,#8b5cf6 0%,#22d3ee 100%);
+  --grad-soft:linear-gradient(135deg,rgba(139,92,246,.18),rgba(34,211,238,.14));
+  --shadow:0 12px 40px -8px rgba(0,0,0,.6);
+  --r:14px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;overflow:hidden}
+body{
+  background:var(--bg);color:var(--fg);
+  font:14px/1.55 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+  letter-spacing:-.01em;
+}
+#bg{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+#bg::before,#bg::after{
+  content:"";position:absolute;border-radius:50%;filter:blur(90px);opacity:.55;
+}
+#bg::before{
+  width:560px;height:560px;background:radial-gradient(circle,#8b5cf6,transparent 70%);
+  top:-200px;left:-160px;animation:float1 22s ease-in-out infinite;
+}
+#bg::after{
+  width:520px;height:520px;background:radial-gradient(circle,#22d3ee,transparent 70%);
+  bottom:-200px;right:-160px;animation:float2 26s ease-in-out infinite;
+}
+@keyframes float1{50%{transform:translate(120px,80px) scale(1.1)}}
+@keyframes float2{50%{transform:translate(-100px,-60px) scale(1.08)}}
+
+/* ---------- layout ---------- */
+#app{height:100%;display:flex;flex-direction:column;height:100dvh}
+header{
+  height:56px;flex:0 0 auto;display:flex;align-items:center;gap:10px;
+  padding:0 14px;border-bottom:1px solid var(--border);
+  background:rgba(10,10,14,.6);backdrop-filter:blur(20px) saturate(1.4);
+  -webkit-backdrop-filter:blur(20px) saturate(1.4);position:relative;z-index:5;
+}
+.brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:15px;letter-spacing:-.02em}
+.dot{
+  width:20px;height:20px;border-radius:7px;background:var(--grad);
+  box-shadow:0 0 18px rgba(139,92,246,.6),0 0 6px rgba(34,211,238,.5);
+  position:relative;
+}
+.dot::after{
+  content:"";position:absolute;inset:3px;border-radius:4px;
+  background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.5),transparent 60%);
+}
+.spacer{flex:1}
+.pill{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:4px 10px;border-radius:999px;font-size:11px;
+  background:rgba(255,255,255,.04);border:1px solid var(--border);
+  color:var(--dim);letter-spacing:0;white-space:nowrap;max-width:46vw;overflow:hidden;text-overflow:ellipsis;
+}
+.pill.on{color:var(--ok);border-color:rgba(52,211,153,.3);background:rgba(52,211,153,.08)}
+.pill .led{width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor}
+.ibtn{
+  height:32px;min-width:32px;padding:0 11px;border-radius:9px;
+  background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--fg);
+  font:inherit;font-size:12.5px;font-weight:500;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;transition:.15s;
+}
+.ibtn:hover{background:rgba(255,255,255,.08);border-color:var(--border-2)}
+.ibtn.primary{background:var(--grad);border:0;color:#fff;box-shadow:0 6px 20px -6px rgba(139,92,246,.7)}
+.ibtn.primary:hover{filter:brightness(1.08)}
+.ibtn:disabled{opacity:.4;cursor:default}
+
+.tabs{display:none;gap:4px;background:rgba(255,255,255,.04);padding:3px;border-radius:10px;border:1px solid var(--border)}
+.tab{padding:5px 12px;border-radius:7px;font-size:12.5px;color:var(--dim);cursor:pointer;border:0;background:transparent;font:inherit}
+.tab.on{background:rgba(255,255,255,.08);color:var(--fg)}
+
+main{flex:1;display:grid;grid-template-columns:420px 1fr;min-height:0}
+@media (max-width:900px){
+  main{grid-template-columns:1fr}
+  .tabs{display:flex}
+  .brand span{display:none}
+  main.show-preview .chat{display:none}
+  main:not(.show-preview) .preview{display:none}
+}
+
+/* ---------- chat ---------- */
+.chat{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--border);background:rgba(8,8,11,.4)}
+.log{flex:1;overflow-y:auto;padding:18px 16px 8px;-webkit-overflow-scrolling:touch}
+.log::-webkit-scrollbar{width:6px}
+.log::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:3px}
+.msg{margin-bottom:16px;animation:in .3s ease}
+@keyframes in{from{opacity:0;transform:translateY(6px)}}
+.msg .who{font-size:11px;color:var(--dim-2);margin-bottom:5px;letter-spacing:.02em;text-transform:uppercase}
+.msg.user{text-align:right}
+.msg.user .who{text-align:right}
+.msg.user .body{
+  display:inline-block;text-align:left;max-width:88%;padding:10px 14px;
+  border-radius:16px 16px 4px 16px;background:var(--grad);color:#fff;
+  font-size:13.5px;line-height:1.5;box-shadow:0 6px 22px -8px rgba(139,92,246,.6);
+  white-space:pre-wrap;word-break:break-word;
+}
+.msg.assistant .body{
+  display:block;padding:11px 14px;border-radius:16px 16px 16px 4px;
+  background:var(--panel);border:1px solid var(--border);
+  font-size:13px;line-height:1.5;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  white-space:pre-wrap;word-break:break-word;
+}
+.msg.assistant .body.err{border-color:rgba(248,113,113,.35);background:rgba(40,15,15,.6);color:#ffc4c4}
+
+.building{
+  display:flex;align-items:center;gap:10px;padding:12px 14px;
+  border-radius:16px 16px 16px 4px;background:var(--panel);border:1px solid var(--border);
+  overflow:hidden;position:relative;
+}
+.building::after{
+  content:"";position:absolute;inset:0;background:var(--grad-soft);
+  background-size:200% 100%;animation:shimmer 2.4s linear infinite;pointer-events:none;
+}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+.building .spin{
+  width:16px;height:16px;border-radius:50%;flex:0 0 auto;
+  border:2px solid rgba(255,255,255,.12);border-top-color:var(--a2);
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.building .txt{position:relative;font-size:13px;color:var(--fg)}
+.building .sub{position:relative;font-size:11.5px;color:var(--dim);margin-top:2px}
+
+.done-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.mini{
+  font-size:11.5px;padding:5px 10px;border-radius:8px;
+  background:rgba(255,255,255,.04);border:1px solid var(--border);
+  color:var(--dim);cursor:pointer;font:inherit;transition:.15s;
+}
+.mini:hover{color:var(--fg);border-color:var(--border-2);background:rgba(255,255,255,.07)}
+
+.empty{padding:32px 24px;text-align:center;color:var(--dim)}
+.empty .orb{
+  width:70px;height:70px;margin:0 auto 18px;border-radius:24px;
+  background:var(--grad);box-shadow:0 12px 40px -8px rgba(139,92,246,.7);
+  display:flex;align-items:center;justify-content:center;font-size:30px;
+}
+.empty h2{margin:0 0 6px;font-size:17px;color:var(--fg);font-weight:600;letter-spacing:-.02em}
+.empty p{margin:0 0 20px;font-size:13px;line-height:1.5}
+.chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.chip{
+  font-size:12px;padding:7px 12px;border-radius:999px;
+  background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--dim);
+  cursor:pointer;font:inherit;transition:.15s;
+}
+.chip:hover{color:var(--fg);border-color:var(--border-2);background:rgba(255,255,255,.07)}
+
+/* ---------- composer ---------- */
+.composer{flex:0 0 auto;padding:10px 14px 14px;padding-bottom:calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--border);background:rgba(10,10,14,.6);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+.field{
+  display:flex;gap:8px;align-items:flex-end;padding:6px 6px 6px 14px;
+  border-radius:16px;background:rgba(255,255,255,.035);border:1px solid var(--border);
+  transition:.2s;
+}
+.field:focus-within{border-color:rgba(139,92,246,.55);box-shadow:0 0 0 3px rgba(139,92,246,.12)}
+textarea{
+  flex:1;resize:none;border:0;background:transparent;color:var(--fg);
+  font:inherit;font-size:14px;line-height:1.5;padding:9px 0;outline:none;
+  min-height:22px;max-height:140px;
+}
+textarea::placeholder{color:var(--dim-2)}
+.send{
+  flex:0 0 auto;width:36px;height:36px;border-radius:11px;border:0;
+  background:var(--grad);color:#fff;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 6px 18px -6px rgba(139,92,246,.8);transition:.15s;
+}
+.send:hover{filter:brightness(1.1)}
+.send:disabled{opacity:.35;cursor:default;filter:none}
+.send svg{width:16px;height:16px}
+
+/* ---------- preview ---------- */
+.preview{display:flex;flex-direction:column;min-height:0;background:rgba(5,5,8,.6)}
+.pbar{
+  flex:0 0 auto;height:48px;display:flex;align-items:center;gap:6px;
+  padding:0 12px;border-bottom:1px solid var(--border);
+  background:rgba(10,10,14,.5);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+}
+.url{
+  flex:1;min-width:0;height:30px;padding:0 12px;border-radius:8px;
+  background:rgba(255,255,255,.04);border:1px solid var(--border);
+  display:flex;align-items:center;font-size:12px;color:var(--dim);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.url .lock{color:var(--ok);margin-right:6px;font-size:11px}
+.stage{flex:1;position:relative;min-height:0;background:#fff}
+.stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff}
+.stage .blank{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;color:#6b6b78;
+  background:#0c0c10;text-align:center;padding:24px;gap:10px;
+}
+.stage .blank .icon{
+  width:56px;height:56px;border-radius:18px;background:var(--grad-soft);
+  border:1px solid var(--border);display:flex;align-items:center;justify-content:center;
+  font-size:24px;margin-bottom:6px;
+}
+.stage .blank p{font-size:13px;margin:0;max-width:280px;line-height:1.5}
+
+/* ---------- modal ---------- */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
+.modal.open{display:flex}
+.card{
+  width:min(520px,100%);background:#12121a;border:1px solid var(--border-2);
+  border-radius:18px;padding:20px;box-shadow:var(--shadow);
+}
+.card h3{margin:0 0 4px;font-size:16px;font-weight:600;letter-spacing:-.02em}
+.card p{margin:0 0 14px;font-size:12.5px;color:var(--dim);line-height:1.5}
+.card a{color:var(--a2);text-decoration:none}
+.card a:hover{text-decoration:underline}
+.card input{
+  width:100%;padding:11px 13px;border-radius:11px;background:rgba(255,255,255,.04);
+  border:1px solid var(--border);color:var(--fg);font:inherit;font-size:13px;outline:none;
+  margin-bottom:14px;
+}
+.card input:focus{border-color:rgba(139,92,246,.5);box-shadow:0 0 0 3px rgba(139,92,246,.12)}
+.row{display:flex;gap:8px;justify-content:flex-end}
+
+.toast{
+  position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);
+  padding:11px 18px;border-radius:12px;background:rgba(30,30,40,.95);
+  border:1px solid var(--border-2);font-size:13px;color:var(--fg);
+  box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:.25s;z-index:60;
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<div id="bg"></div>
+
+<div id="app">
+  <header>
+    <div class="brand"><div class="dot"></div><span>Forge</span></div>
+    <div class="tabs" id="tabs">
+      <button class="tab on" data-tab="chat">Chat</button>
+      <button class="tab" data-tab="preview">Preview</button>
+    </div>
+    <div class="spacer"></div>
+    <span class="pill" id="status"><span class="led"></span><span id="statusText">tap key</span></span>
+    <button class="ibtn" id="btnKey" title="API key">Key</button>
+    <button class="ibtn" id="btnNew" title="New site">New</button>
+  </header>
+
+  <main id="main">
+    <section class="chat">
+      <div class="log" id="log"></div>
+      <div class="composer">
+        <div class="field">
+          <textarea id="input" placeholder="describe a website…" rows="1"></textarea>
+          <button class="send" id="send" title="Send">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="preview">
+      <div class="pbar">
+        <div class="url" id="urlBar"><span class="lock">◈</span><span id="urlText">forge.local</span></div>
+        <button class="ibtn" id="btnOpen" title="Open in new tab">Open</button>
+        <button class="ibtn" id="btnCopy" title="Copy HTML">Copy</button>
+        <button class="ibtn primary" id="btnDl" title="Download">Download</button>
+      </div>
+      <div class="stage" id="stage">
+        <div class="blank" id="blank">
+          <div class="icon">✦</div>
+          <p>Describe a site. Watch it build here.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="modal" id="modal">
+  <div class="card">
+    <h3>OpenRouter API Key</h3>
+    <p>Get one free at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a>. Stored in this browser only.</p>
+    <input type="password" id="keyInput" placeholder="sk-or-v1-…" autocomplete="off">
+    <div class="row">
+      <button class="ibtn" id="keyCancel">Cancel</button>
+      <button class="ibtn primary" id="keySave">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+
+const API = "https://openrouter.ai/api/v1/chat/completions";
+const MODELS = [
+  "openrouter/free",
+  "meta-llama/llama-3.3-70b-instruct:free",
+  "qwen/qwen-2.5-72b-instruct:free",
+  "google/gemini-2.0-flash-exp:free",
+  "meta-llama/llama-3.1-8b-instruct:free",
+];
+
+const SYS = `You are Forge, a world-class front-end engineer and designer. The user describes a website. You output a single, complete, self-contained HTML file.
+
+OUTPUT RULES — non-negotiable:
+- Output ONLY the full HTML document. No prose before or after. No markdown fences. No comments about what you did.
+- Start with <!doctype html>. End with </html>.
+- All CSS inside a <style> tag. All JS inside a <script> tag. No separate files.
+- External CDNs are allowed (e.g. <script src="https://cdn.tailwindcss.com"></script>, Google Fonts, Chart.js) when they improve the result.
+
+DESIGN RULES:
+- Modern, polished, production-quality. Never a wireframe or placeholder.
+- Real copy in the user's language. No lorem ipsum, no "your text here".
+- Generous spacing, strong typographic hierarchy, coherent palette, subtle motion.
+- Fully responsive. Works on phone and desktop.
+- Dark or light theme — pick what fits the brief and commit to it.
+- Include real interactions where they make sense (hover, click, form).
+
+When the user asks for changes, output the FULL updated document, never a diff.`;
+
+const state = {
+  key: localStorage.getItem("fg.k") || "",
+  code: localStorage.getItem("fg.code") || "",
+  busy: false,
+  chat: JSON.parse(localStorage.getItem("fg.chat") || "[]"),
+};
+
+const saveChat = () => localStorage.setItem("fg.chat", JSON.stringify(state.chat));
+const saveCode = () => localStorage.setItem("fg.code", state.code);
+
+/* ---------- toast ---------- */
+let toastT;
+function toast(msg, ms = 2200) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.classList.add("on");
+  clearTimeout(toastT);
+  toastT = setTimeout(() => t.classList.remove("on"), ms);
+}
+
+/* ---------- status ---------- */
+function status(text, on) {
+  $("#statusText").textContent = text;
+  $("#status").classList.toggle("on", !!on);
+}
+
+/* ---------- render chat ---------- */
+function addMsg(role, text, opts = {}) {
+  const el = document.createElement("div");
+  el.className = "msg " + role;
+  el.innerHTML = '<div class="who">' + (role === "user" ? "you" : "forge") + '</div><div class="body' + (opts.err ? " err" : "") + '"></div>';
+  el.querySelector(".body").textContent = text;
+  if (opts.actions) {
+    const a = document.createElement("div");
+    a.className = "done-actions";
+    for (const b of opts.actions) {
+      const btn = document.createElement("button");
+      btn.className = "mini";
+      btn.textContent = b.label;
+      btn.onclick = b.fn;
+      a.appendChild(btn);
+    }
+    el.querySelector(".body").appendChild(a);
+  }
+  $("#log").appendChild(el);
+  $("#log").scrollTop = $("#log").scrollHeight;
+  return el;
+}
+
+function addBuilding() {
+  const el = document.createElement("div");
+  el.className = "msg assistant";
+  el.innerHTML = '<div class="who">forge</div><div class="building"><div class="spin"></div><div><div class="txt" id="bTxt">Building your site…</div><div class="sub" id="bSub">0 chars</div></div></div>';
+  $("#log").appendChild(el);
+  $("#log").scrollTop = $("#log").scrollHeight;
+  return el;
+}
+
+function showEmpty() {
+  if (state.chat.length) return;
+  $("#log").innerHTML = `
+    <div class="empty">
+      <div class="orb">✦</div>
+      <h2>Describe a site</h2>
+      <p>Say what you want. Forge builds the whole thing — preview appears on the right.</p>
+      <div class="chips">
+        <button class="chip" data-p="A minimal landing page for a coffee shop in Oslo, dark theme, with a menu grid and opening hours">coffee shop</button>
+        <button class="chip" data-p="A personal portfolio site for a game developer. Dark, neon accents, project cards with hover effects">portfolio</button>
+        <button class="chip" data-p="A waitlist landing page for a mobile app. Big headline, email capture, social proof">waitlist</button>
+        <button class="chip" data-p="An interactive pricing page with 3 tiers and a monthly/yearly toggle">pricing</button>
+      </div>
+    </div>`;
+  document.querySelectorAll(".chip").forEach(c => c.onclick = () => {
+    $("#input").value = c.dataset.p;
+    send();
+  });
+}
+
+function replayChat() {
+  $("#log").innerHTML = "";
+  if (!state.chat.length) { showEmpty(); return; }
+  for (const m of state.chat) {
+    if (m.role === "user") addMsg("user", m.text);
+    else addMsg("assistant", m.text, { err: m.err });
+  }
+}
+
+/* ---------- preview ---------- */
+function setPreview(html) {
+  const stage = $("#stage");
+  if (!html || html.length < 60) {
+    stage.innerHTML = '<div class="blank"><div class="icon">✦</div><p>Describe a site. Watch it build here.</p></div>';
+    $("#urlText").textContent = "forge.local";
+    return;
+  }
+  stage.innerHTML = '<iframe id="frame" sandbox="allow-scripts allow-forms allow-popups allow-modals"></iframe>';
+  const f = $("#frame");
+  f.srcdoc = html;
+  $("#urlText").textContent = "forge.local / index.html";
+}
+
+/* ---------- extract html from model output ---------- */
+function extractHTML(s) {
+  if (!s) return "";
+  s = s.trim();
+  s = s.replace(/^```[a-zA-Z]*\s*\n?/, "").replace(/\n?```\s*$/, "");
+  const i = s.search(/<!doctype html>|<html[\s>]/i);
+  if (i > 0) s = s.slice(i);
+  return s.trim();
+}
+
+/* ---------- streaming call ---------- */
+async function callModel(model, onTok) {
+  const messages = [
+    { role: "system", content: SYS },
+    {
+      role: "user",
+      content: state.code
+        ? "Current site:\n\n```html\n" + state.code + "\n```\n\nNew request: " + onTok._prompt + "\n\nOutput the full updated HTML document only."
+        : "Build this site: " + onTok._prompt + "\n\nOutput the full HTML document only."
+    }
+  ];
+  const res = await fetch(API, {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + state.key,
+      "Content-Type": "application/json",
+      "HTTP-Referer": location.origin,
+      "X-Title": "Forge",
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      temperature: 0.7,
+      max_tokens: 8192,
+      stream: true,
+    }),
+  });
+  if (!res.ok) {
+    const t = await res.text();
+    const e = new Error("HTTP " + res.status + " — " + t.slice(0, 220));
+    e.status = res.status;
+    throw e;
+  }
+  const rd = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  while (true) {
+    const { value, done } = await rd.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const parts = buf.split("\n");
+    buf = parts.pop();
+    for (const p of parts) {
+      if (!p.startsWith("data: ")) continue;
+      const d = p.slice(6).trim();
+      if (d === "[DONE]") continue;
+      try {
+        const j = JSON.parse(d);
+        const tk = j.choices?.[0]?.delta?.content || "";
+        if (tk) onTok(tk);
+      } catch {}
+    }
+  }
+}
+
+/* ---------- send ---------- */
+async function send() {
+  if (state.busy) return;
+  if (!state.key) { openKey(); return; }
+  const raw = $("#input").value.trim();
+  if (!raw) return;
+  $("#input").value = "";
+  $("#input").style.height = "auto";
+
+  state.chat.push({ role: "user", text: raw });
+  saveChat();
+  addMsg("user", raw);
+
+  const el = addBuilding();
+  const bTxt = el.querySelector("#bTxt");
+  const bSub = el.querySelector("#bSub");
+
+  state.busy = true;
+  $("#send").disabled = true;
+  status("building…", false);
+
+  let acc = "";
+  let winner = null;
+  let lastErr = null;
+
+  const handler = tk => { acc += tk; };
+  handler._prompt = raw;
+
+  for (const m of MODELS) {
+    try {
+      status("try " + m.split("/").pop(), false);
+      acc = "";
+      await callModel(m, handler);
+      winner = m;
+      break;
+    } catch (e) {
+      lastErr = e;
+      if (e.status === 401) break;
+      continue;
+    }
+  }
+
+  el.remove();
+
+  if (!winner) {
+    const msg = lastErr ? lastErr.message : "all models failed";
+    addMsg("assistant", "Couldn't reach a model.\n" + msg, { err: true });
+    state.chat.push({ role: "assistant", text: "Couldn't reach a model.\n" + msg, err: true });
+    saveChat();
+    status("failed", false);
+    state.busy = false;
+    $("#send").disabled = false;
+    return;
+  }
+
+  const html = extractHTML(acc);
+  if (!html || !/<\/html>/i.test(html)) {
+    addMsg("assistant", "The model returned an incomplete page. Try again or rephrase.", { err: true });
+    state.chat.push({ role: "assistant", text: "incomplete response", err: true });
+    saveChat();
+    status("retry", false);
+    state.busy = false;
+    $("#send").disabled = false;
+    return;
+  }
+
+  state.code = html;
+  saveCode();
+  setPreview(html);
+
+  const lines = html.split("\n").length;
+  const kb = (html.length / 1024).toFixed(1);
+  const summary = "Site ready · " + lines + " lines · " + kb + " KB";
+
+  addMsg("assistant", summary, {
+    actions: [
+      { label: "preview tab", fn: () => window.open("", "_blank") ? openPreview() : openPreview() },
+      { label: "download", fn: download },
+      { label: "copy html", fn: copyCode },
+    ]
+  });
+  state.chat.push({ role: "assistant", text: summary });
+  saveChat();
+
+  status("ok · " + winner.split("/").pop(), true);
+  switchTab("preview");
+  state.busy = false;
+  $("#send").disabled = false;
+  $("#input").focus();
+}
+
+function openPreview() {
+  const w = window.open();
+  if (!w) return;
+  w.document.write(state.code);
+  w.document.close();
+}
+function download() {
+  if (!state.code) return;
+  const blob = new Blob([state.code], { type: "text/html" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "index.html";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast("saved index.html");
+}
+function copyCode() {
+  if (!state.code) return;
+  navigator.clipboard.writeText(state.code).then(() => toast("html copied"), () => toast("copy failed"));
+}
+
+/* ---------- tabs (mobile) ---------- */
+function switchTab(t) {
+  const main = $("#main");
+  main.classList.toggle("show-preview", t === "preview");
+  document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x.dataset.tab === t));
+}
+document.querySelectorAll(".tab").forEach(x => x.onclick = () => switchTab(x.dataset.tab));
+
+/* ---------- key modal ---------- */
+function openKey() {
+  $("#keyInput").value = state.key;
+  $("#modal").classList.add("open");
+  setTimeout(() => $("#keyInput").focus(), 60);
+}
+function closeKey() { $("#modal").classList.remove("open"); }
+$("#btnKey").onclick = openKey;
+$("#keyCancel").onclick = closeKey;
+$("#keySave").onclick = () => {
+  state.key = $("#keyInput").value.trim();
+  localStorage.setItem("fg.k", state.key);
+  closeKey();
+  status(state.key ? "ready" : "tap key", false);
+  toast(state.key ? "key saved" : "key cleared");
+};
+$("#modal").addEventListener("click", e => { if (e.target.id === "modal") closeKey(); });
+
+/* ---------- new project ---------- */
+$("#btnNew").onclick = () => {
+  if (state.busy) return;
+  if (!confirm("Start a new site? Current one is lost.")) return;
+  state.chat = [];
+  state.code = "";
+  saveChat(); saveCode();
+  replayChat();
+  setPreview("");
+  status("ready", false);
+  switchTab("chat");
+};
+
+/* ---------- preview toolbar ---------- */
+$("#btnOpen").onclick = () => { if (!state.code) return toast("nothing to open"); openPreview(); };
+$("#btnCopy").onclick = () => { if (!state.code) return toast("nothing to copy"); copyCode(); };
+$("#btnDl").onclick = () => { if (!state.code) return toast("nothing to download"); download(); };
+
+/* ---------- composer ---------- */
+const input = $("#input");
+input.addEventListener("input", () => {
+  input.style.height = "auto";
+  input.style.height = Math.min(input.scrollHeight, 140) + "px";
+});
+input.addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey && window.innerWidth > 900) {
+    e.preventDefault(); send();
+  }
+});
+$("#send").onclick = send;
+
+/* ---------- boot ---------- */
+replayChat();
+if (state.code) { setPreview(state.code); }
+status(state.key ? "ready" : "tap key", false);
+</script>
+</body>
+</html>
